@@ -20,18 +20,17 @@ func (l *BudgetLeaseLedger) Reserve(ctx context.Context, amount int) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	l.mu.Lock()
-	if l.used+amount > l.capacity {
-		l.mu.Unlock()
-		return ErrBudgetLeaseCapacity
-	}
-	hook := l.BeforeCommit
-	l.mu.Unlock()
-	if hook != nil {
+	if hook := l.BeforeCommit; hook != nil {
 		hook()
 	}
 	l.mu.Lock()
+	defer l.mu.Unlock()
+	if amount <= 0 || l.used+amount > l.capacity {
+		return ErrBudgetLeaseCapacity
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	l.used += amount
-	l.mu.Unlock()
 	return nil
 }
